@@ -4,12 +4,12 @@
 width: 424
 height: 240
 fps: 60
-sample_stride: 2
+sample_stride: 1 # 2
 max_frames: 0
 
 # RealSense filters / emitter
-rs_postprocess: 1
-rs_hole_fill: 1
+rs_postprocess: 0 # 1
+rs_hole_fill: -1 #1
 rs_emitter: 1
 rs_laser_power: -1.0
 

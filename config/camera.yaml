@@ -2,13 +2,12 @@
 # T_G_C: transform from camera frame C to global/world frame G
 # Units: meters, quaternion as x y z w
 
-tx: 0.957
-ty: 0.136
-tz: 0.396
-qx: -0.463
-qy: -0.425
-qz: 0.516
-qw: 0.582
-
+tx: 0.833
+ty: 0.036
+tz: 0.962
+qx: 0.637
+qy: 0.664
+qz: -0.267
+qw: -0.285
 
 

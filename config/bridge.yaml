@@ -1,0 +1,37 @@
+# Runtime config for realsense_voxblox_bridge.
+
+# RealSense stream
+width: 424
+height: 240
+fps: 60
+sample_stride: 2
+max_frames: 0
+
+# RealSense filters / emitter
+rs_postprocess: 1
+rs_hole_fill: 1
+rs_emitter: 1
+rs_laser_power: -1.0
+
+# TSDF/ESDF integration
+update_esdf_every_n_frames: 5
+voxel_size: 0.05
+voxels_per_side: 16
+truncation: 0.2
+min_ray: 0.2
+max_ray: 2.5
+esdf_max: 3.0
+esdf_default: 3.0
+esdf_min: 0.2
+slice_z: 0.0
+output_dir: output
+
+# Extrinsics
+camera_config: config/camera.yaml
+
+# ROS2 pointcloud publish
+ros2_pub: 1
+ros2_topic: /realsense/points
+ros2_frame: world
+pub_min_ray: 0.2
+pub_max_ray: 2.5

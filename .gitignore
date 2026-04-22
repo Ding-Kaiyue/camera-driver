@@ -1,0 +1,27 @@
+# Build artifacts
+/build/
+/cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+compile_commands.json
+
+# ROS 2 / colcon outputs
+/install/
+/log/
+
+# Runtime outputs
+/output/
+
+# IDE / editor
+/.vscode/
+/.idea/
+/.codex
+
+# OS and temp files
+.DS_Store
+Thumbs.db
+*~
+*.swp
+*.swo

@@ -1,0 +1,18 @@
+# Live ESDF parameters for camera_driver.
+
+esdf:
+  resolution_m: 0.05
+  map_size_xyz_m: [2.6, 2.6, 2.0]
+  map_origin_xyz_m: [-1.3, -1.3, 0.0]
+  local_update_range_xyz_m: [1.0, 1.0, 1.0]
+  obstacle_inflation_m: 0.00
+  local_map_margin_cells: 2
+  local_bound_inflate_m: 0.20
+  unknown_distance_m: 10000.0
+
+visualization:
+  slice_height_m: 0.45
+  truncate_height_m: 1.8
+  occupancy_topic: /camera_driver/esdf_occupancy
+  inflated_occupancy_topic: /camera_driver/esdf_inflated_occupancy
+  esdf_slice_topic: /camera_driver/esdf_slice

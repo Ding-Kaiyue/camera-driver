@@ -1,0 +1,11 @@
+# Robot self-filter and input cleanup for camera_driver.
+
+filter:
+  enable_self_filter: true
+  arm_mappings: [left_arm, right_arm]
+  self_padding_m: 0.03
+  exclude_robot_base: true
+  base_radius_m: 0.16
+  base_half_height_m: 0.22
+  base_center_z_m: 0.22
+  crop_below_world_z_m: 0.10

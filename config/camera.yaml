@@ -1,13 +1,27 @@
-# Camera extrinsic used by realsense_voxblox_bridge
-# T_G_C: transform from camera frame C to global/world frame G
-# Units: meters, quaternion as x y z w
+# Camera stream, publish names, and extrinsics for camera_driver.
 
-tx: 0.833
-ty: 0.036
-tz: 0.962
-qx: 0.637
-qy: 0.664
-qz: -0.267
-qw: -0.285
+camera:
+  width: 424
+  height: 240
+  fps: 60
+  sample_stride: 1
+  max_frames: 0
+  min_ray_m: 0.05
+  max_ray_m: 2.50
+  parent_frame: world
 
+realsense:
+  postprocess: false
+  hole_fill_mode: -1
+  emitter_enabled: true
+  laser_power: -1.0
 
+publish:
+  world_frame: world
+  obstacle_pointcloud_topic: /camera_driver/obstacle_pointcloud
+  camera_world_pose_topic: /camera_driver/camera_world_pose
+  camera_frame: camera_link
+
+extrinsics:
+  translation_xyz: [0.706, -0.510, 0.838]
+  quaternion_xyzw: [0.514, 0.597, -0.440, -0.432]

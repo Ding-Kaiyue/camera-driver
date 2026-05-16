@@ -1,12 +1,16 @@
 #include "camera_driver/point_cloud/filter.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
+#include <exception>
+#include <stdexcept>
 #include <sstream>
 #include <utility>
 
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include <geometry_msgs/msg/transform_stamped.hpp>
+#include <tf2/time.h>
 #include <yaml-cpp/yaml.h>
 
 namespace camera_driver {
@@ -81,6 +85,7 @@ bool RobotSelfFilter::initialize(const CameraDriverConfig& config,
                                  std::string* error) {
     enabled_ = config.filter.enable_self_filter;
     world_frame_ = config.camera.publish.world_frame_id;
+    tf_wait_timeout_sec_ = std::max(0.0, config.filter.self_filter_tf_wait_timeout_sec);
     if (!enabled_) {
         return true;
     }
@@ -125,11 +130,12 @@ bool RobotSelfFilter::initialize(const CameraDriverConfig& config,
 
     RCLCPP_INFO(
         node_->get_logger(),
-        "[PointCloud] Robot self-filter enabled: world_frame=%s mappings=%s ellipsoids=%zu padding=%.4f base_exclusion=%s config=%s",
+        "[PointCloud] Robot self-filter enabled: world_frame=%s mappings=%s ellipsoids=%zu padding=%.4f tf_wait_timeout=%.4f base_exclusion=%s config=%s",
         world_frame_.c_str(),
         joinMappings(config.filter.arm_mappings).c_str(),
         link_ellipsoids_.size(),
         config.filter.self_padding_m,
+        tf_wait_timeout_sec_,
         config.filter.exclude_robot_base ? "true" : "false",
         hardware_config_path.c_str());
     return true;
@@ -248,6 +254,7 @@ bool RobotSelfFilter::loadEllipsoidsFromHardwareConfig(
 
 // 构建实际系椭球
 bool RobotSelfFilter::buildWorldEllipsoids(
+    const rclcpp::Time& frame_stamp,
     std::vector<WorldEllipsoid>* ellipsoids) const {
     if (ellipsoids == nullptr || !node_ || tf_buffer_ == nullptr) {
         return false;
@@ -258,10 +265,52 @@ bool RobotSelfFilter::buildWorldEllipsoids(
     for (const LinkEllipsoid& link_ellipsoid : link_ellipsoids_) {
         geometry_msgs::msg::TransformStamped tf_msg;
         try {
+            if (tf_wait_timeout_sec_ > 0.0) {
+                const bool can_transform = tf_buffer_->canTransform(
+                    world_frame_,
+                    link_ellipsoid.link_name,
+                    frame_stamp,
+                    tf2::durationFromSec(tf_wait_timeout_sec_));
+                if (!can_transform) {
+                    throw std::runtime_error("canTransform timed out");
+                }
+            }
             tf_msg = tf_buffer_->lookupTransform(
-                world_frame_, link_ellipsoid.link_name, tf2::TimePointZero);
-        } catch (const std::exception&) {
-            return false;
+                world_frame_, link_ellipsoid.link_name, frame_stamp);
+        } catch (const std::exception& e) {
+            try {
+                tf_msg = tf_buffer_->lookupTransform(
+                    world_frame_, link_ellipsoid.link_name, tf2::TimePointZero);
+                ++tf_lookup_latest_fallback_count_;
+                if (node_ != nullptr &&
+                    (tf_lookup_latest_fallback_count_ <= 5 ||
+                     (tf_lookup_latest_fallback_count_ % 100) == 0)) {
+                    RCLCPP_WARN(
+                        node_->get_logger(),
+                        "[PointCloud] Self-filter TF at stamp failed for link=%s world=%s stamp=%.6f reason=%s; using latest TF fallback count=%zu",
+                        link_ellipsoid.link_name.c_str(),
+                        world_frame_.c_str(),
+                        frame_stamp.seconds(),
+                        e.what(),
+                        tf_lookup_latest_fallback_count_);
+                }
+            } catch (const std::exception& latest_e) {
+                ++tf_lookup_failure_count_;
+                if (node_ != nullptr &&
+                    (tf_lookup_failure_count_ <= 5 ||
+                     (tf_lookup_failure_count_ % 100) == 0)) {
+                    RCLCPP_WARN(
+                        node_->get_logger(),
+                        "[PointCloud] Self-filter TF lookup failed for link=%s world=%s stamp=%.6f reason=%s latest_reason=%s failure_count=%zu",
+                        link_ellipsoid.link_name.c_str(),
+                        world_frame_.c_str(),
+                        frame_stamp.seconds(),
+                        e.what(),
+                        latest_e.what(),
+                        tf_lookup_failure_count_);
+                }
+                return false;
+            }
         }
 
         WorldEllipsoid ellipsoid;
@@ -298,13 +347,14 @@ bool RobotSelfFilter::pointInsideRobot(
 
 std::size_t RobotSelfFilter::filterPointcloud(
     const Transform& T_world_camera,
+    const rclcpp::Time& frame_stamp,
     Pointcloud* points_camera) const {
     if (!enabled_ || points_camera == nullptr || points_camera->empty()) {
         return 0u;
     }
 
     std::vector<WorldEllipsoid> ellipsoids;
-    if (!buildWorldEllipsoids(&ellipsoids)) {
+    if (!buildWorldEllipsoids(frame_stamp, &ellipsoids)) {
         return 0u;
     }
 
@@ -328,6 +378,7 @@ std::size_t RobotSelfFilter::filterPointcloud(
 
 std::size_t RobotSelfFilter::remapSelfHitsToMaxRange(
     const Transform& T_world_camera,
+    const rclcpp::Time& frame_stamp,
     float max_range_m,
     Pointcloud* points_camera) const {
     if (!enabled_ || points_camera == nullptr || points_camera->empty() ||
@@ -336,7 +387,7 @@ std::size_t RobotSelfFilter::remapSelfHitsToMaxRange(
     }
 
     std::vector<WorldEllipsoid> ellipsoids;
-    if (!buildWorldEllipsoids(&ellipsoids)) {
+    if (!buildWorldEllipsoids(frame_stamp, &ellipsoids)) {
         return 0u;
     }
 

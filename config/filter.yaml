@@ -3,7 +3,8 @@
 filter:
   enable_self_filter: true
   arm_mappings: [left_arm, right_arm]
-  self_padding_m: 0.03
+  self_padding_m: 0.05
+  self_filter_tf_wait_timeout_sec: 0.05
   exclude_robot_base: true
   base_radius_m: 0.16
   base_half_height_m: 0.22

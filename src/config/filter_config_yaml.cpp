@@ -26,6 +26,7 @@ bool readOptionalScalar(const YAML::Node& node, const char* key, T* value) {
 bool validateConfig(const FilterConfig& config) {
     return (!config.enable_self_filter || !config.arm_mappings.empty()) &&
            config.self_padding_m >= 0.0 &&
+           config.self_filter_tf_wait_timeout_sec >= 0.0 &&
            config.base_radius_m >= 0.0 &&
            config.base_half_height_m >= 0.0;
 }
@@ -60,6 +61,10 @@ bool loadFilterConfigYaml(const std::string& file_path, FilterConfig* config) {
 
     if (!readOptionalScalar(filter, "enable_self_filter", &parsed_config.enable_self_filter) ||
         !readOptionalScalar(filter, "self_padding_m", &parsed_config.self_padding_m) ||
+        !readOptionalScalar(
+            filter,
+            "self_filter_tf_wait_timeout_sec",
+            &parsed_config.self_filter_tf_wait_timeout_sec) ||
         !readOptionalScalar(filter, "exclude_robot_base", &parsed_config.exclude_robot_base) ||
         !readOptionalScalar(filter, "base_radius_m", &parsed_config.base_radius_m) ||
         !readOptionalScalar(filter, "base_half_height_m", &parsed_config.base_half_height_m) ||

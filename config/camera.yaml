@@ -19,6 +19,10 @@ realsense:
 publish:
   world_frame: world
   obstacle_pointcloud_topic: /camera_driver/obstacle_pointcloud
+  obstacle_voxel_size_m: 0.05
+  obstacle_isolated_min_neighbor_count: 4
+  obstacle_isolated_neighbor_radius_cells: 1
+  obstacle_min_cluster_cell_count: 12
   camera_world_pose_topic: /camera_driver/camera_world_pose
   camera_frame: camera_link
 

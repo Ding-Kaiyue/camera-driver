@@ -27,6 +27,10 @@ struct CameraPublishConfig {
     std::string obstacle_pointcloud_topic{"/camera_driver/obstacle_pointcloud"};
     std::string camera_world_pose_topic{"/camera_driver/camera_world_pose"};
     std::string camera_frame_id{"camera_link"};
+    double obstacle_voxel_size_m{0.05};
+    int obstacle_isolated_min_neighbor_count{4};
+    int obstacle_isolated_neighbor_radius_cells{1};
+    int obstacle_min_cluster_cell_count{12};
 };
 
 struct CameraExtrinsics {

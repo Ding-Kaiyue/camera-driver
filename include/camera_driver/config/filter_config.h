@@ -11,6 +11,7 @@ struct FilterConfig {
     std::string hardware_config_path;
     std::vector<std::string> arm_mappings;
     double self_padding_m = 0.01;
+    double self_filter_tf_wait_timeout_sec = 0.02;
     bool exclude_robot_base = false;
     double base_radius_m = 0.18;
     double base_half_height_m = 0.20;

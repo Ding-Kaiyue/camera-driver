@@ -12,6 +12,7 @@
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <librealsense2/rs.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp/time.hpp>
 #include <rclcpp/executors/single_threaded_executor.hpp>
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
@@ -176,6 +177,7 @@ int runCameraDriverApplication(const CameraDriverConfig& app_cfg,
         std::unique_ptr<tf2_ros::TransformListener> tf_listener;
         if (need_tf_listener) {
             tf_buffer = std::make_unique<tf2_ros::Buffer>(node->get_clock());
+            tf_buffer->setUsingDedicatedThread(true);
             tf_listener = std::make_unique<tf2_ros::TransformListener>(*tf_buffer, node, false);
             if (need_tf_compose) {
                 std::cout << "Composing pose by TF each frame:\n"
@@ -290,29 +292,6 @@ int runCameraDriverApplication(const CameraDriverConfig& app_cfg,
                 break;
             }
 
-            if (need_tf_compose) {
-                try {
-                    const geometry_msgs::msg::TransformStamped tf_msg =
-                        tf_buffer->lookupTransform(app_cfg.camera.publish.world_frame_id,
-                                                   app_cfg.camera.stream.parent_frame_id,
-                                                   tf2::TimePointZero);
-                    const Transform T_world_parent = toTransform(tf_msg);
-                    T_world_camera = T_world_parent * T_parent_camera;
-                    has_world_pose = true;
-                } catch (const std::exception& e) {
-                    ++skipped_no_tf_frames;
-                    if (skipped_no_tf_frames % 30 == 0) {
-                        std::cout << "[warn] waiting TF "
-                                  << app_cfg.camera.publish.world_frame_id << " <- "
-                                  << app_cfg.camera.stream.parent_frame_id
-                                  << " error: " << e.what() << std::endl;
-                    }
-                    if (!has_world_pose) {
-                        continue;
-                    }
-                }
-            }
-
             if (frame_count < 5) {
                 std::cout << "[camera_driver] waiting for depth frame" << std::endl;
             }
@@ -331,6 +310,35 @@ int runCameraDriverApplication(const CameraDriverConfig& app_cfg,
                               << std::endl;
                 }
                 continue;
+            }
+
+            // RealSense frame timestamps are device-domain timestamps and are
+            // not guaranteed to share the same clock base as ROS TF. Use the
+            // ROS receive time so TF lookup and self-filtering stay in one
+            // consistent time domain.
+            const rclcpp::Time frame_stamp = node->now();
+
+            if (need_tf_compose) {
+                try {
+                    const geometry_msgs::msg::TransformStamped tf_msg =
+                        tf_buffer->lookupTransform(app_cfg.camera.publish.world_frame_id,
+                                                   app_cfg.camera.stream.parent_frame_id,
+                                                   frame_stamp);
+                    const Transform T_world_parent = toTransform(tf_msg);
+                    T_world_camera = T_world_parent * T_parent_camera;
+                    has_world_pose = true;
+                } catch (const std::exception& e) {
+                    ++skipped_no_tf_frames;
+                    if (skipped_no_tf_frames % 30 == 0) {
+                        std::cout << "[warn] waiting TF "
+                                  << app_cfg.camera.publish.world_frame_id << " <- "
+                                  << app_cfg.camera.stream.parent_frame_id
+                                  << " at frame stamp error: " << e.what() << std::endl;
+                    }
+                    if (!has_world_pose) {
+                        continue;
+                    }
+                }
             }
 
             if (frame_count < 5) {
@@ -364,6 +372,7 @@ int runCameraDriverApplication(const CameraDriverConfig& app_cfg,
                 }
                 self_filtered_mapping_total += self_filter->filterPointcloud(
                     T_world_camera,
+                    frame_stamp,
                     &points_for_mapping);
                 if (frame_count < 5) {
                     std::cout << "[camera_driver] self_filter done"

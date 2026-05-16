@@ -123,11 +123,23 @@ bool loadCameraConfigYaml(const std::string& file_path, CameraConfig* config) {
     }
 
     if (!readOptionalScalar(camera, "max_frames", &parsed_config.stream.max_frames) ||
+        !readOptionalScalar(publish, "obstacle_voxel_size_m", &parsed_config.publish.obstacle_voxel_size_m) ||
+        !readOptionalScalar(publish, "obstacle_isolated_min_neighbor_count", &parsed_config.publish.obstacle_isolated_min_neighbor_count) ||
+        !readOptionalScalar(publish, "obstacle_isolated_neighbor_radius_cells", &parsed_config.publish.obstacle_isolated_neighbor_radius_cells) ||
+        !readOptionalScalar(publish, "obstacle_min_cluster_cell_count", &parsed_config.publish.obstacle_min_cluster_cell_count) ||
         !readOptionalScalar(realsense, "postprocess", &parsed_config.realsense.postprocess) ||
         !readOptionalScalar(realsense, "hole_fill_mode", &parsed_config.realsense.hole_filling_mode) ||
         !readOptionalScalar(realsense, "laser_power", &parsed_config.realsense.laser_power)) {
         return false;
     }
+    parsed_config.publish.obstacle_voxel_size_m =
+        std::max(1.0e-3, parsed_config.publish.obstacle_voxel_size_m);
+    parsed_config.publish.obstacle_isolated_min_neighbor_count =
+        std::max(0, parsed_config.publish.obstacle_isolated_min_neighbor_count);
+    parsed_config.publish.obstacle_isolated_neighbor_radius_cells =
+        std::max(1, parsed_config.publish.obstacle_isolated_neighbor_radius_cells);
+    parsed_config.publish.obstacle_min_cluster_cell_count =
+        std::max(1, parsed_config.publish.obstacle_min_cluster_cell_count);
 
     if (realsense && realsense["emitter_enabled"]) {
         try {

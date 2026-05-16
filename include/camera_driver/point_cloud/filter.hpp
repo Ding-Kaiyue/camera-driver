@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <vector>
@@ -24,8 +25,10 @@ public:
     bool enabled() const { return enabled_; }
 
     std::size_t filterPointcloud(const Transform& T_world_camera,
+                                 const rclcpp::Time& frame_stamp,
                                  Pointcloud* points_camera) const;
     std::size_t remapSelfHitsToMaxRange(const Transform& T_world_camera,
+                                        const rclcpp::Time& frame_stamp,
                                         float max_range_m,
                                         Pointcloud* points_camera) const;
 
@@ -51,15 +54,19 @@ private:
                                           const std::vector<std::string>& mappings,
                                           const CameraDriverConfig& config,
                                           std::string* error);
-    bool buildWorldEllipsoids(std::vector<WorldEllipsoid>* ellipsoids) const;
+    bool buildWorldEllipsoids(const rclcpp::Time& frame_stamp,
+                              std::vector<WorldEllipsoid>* ellipsoids) const;
     bool pointInsideRobot(const Eigen::Vector3d& point_world,
                           const std::vector<WorldEllipsoid>& ellipsoids) const;
 
     bool enabled_{false};
     std::string world_frame_;
+    double tf_wait_timeout_sec_{0.02};
     rclcpp::Node::SharedPtr node_;
     tf2_ros::Buffer* tf_buffer_{nullptr};
     std::vector<LinkEllipsoid> link_ellipsoids_;
+    mutable std::size_t tf_lookup_latest_fallback_count_{0};
+    mutable std::size_t tf_lookup_failure_count_{0};
 };
 
 }  // namespace camera_driver

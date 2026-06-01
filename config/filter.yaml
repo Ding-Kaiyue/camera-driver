@@ -9,4 +9,6 @@ filter:
   base_radius_m: 0.16
   base_half_height_m: 0.22
   base_center_z_m: 0.22
-  crop_below_world_z_m: 0.10
+  # Keep a small ground band out of the ESDF, but preserve low obstacle points
+  # so the mobile base can avoid pillars.
+  crop_below_world_z_m: 0.03

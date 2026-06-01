@@ -107,6 +107,20 @@ if(BUILD_BRIDGE)
     -Wextra
   )
 
+  add_executable(camera_driver_sim_node
+    src/node/camera_driver_sim_node.cpp
+  )
+
+  target_link_libraries(camera_driver_sim_node
+    PRIVATE
+      camera_driver_core
+  )
+
+  target_compile_options(camera_driver_sim_node PRIVATE
+    -Wall
+    -Wextra
+  )
+
   install(
     DIRECTORY include/camera_driver/
     DESTINATION include/camera_driver
@@ -128,6 +142,7 @@ if(BUILD_BRIDGE)
   install(
     TARGETS camera_driver_example
             camera_driver_node
+            camera_driver_sim_node
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION lib
     RUNTIME DESTINATION lib/${PROJECT_NAME}

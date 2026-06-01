@@ -282,25 +282,11 @@ int runCameraDriverApplication(const CameraDriverConfig& app_cfg,
         std::cout << "[camera_driver] entering main capture loop" << std::endl;
 
         while (!g_should_exit.load()) {
-            if (frame_count < 5) {
-                std::cout << "[camera_driver] loop iteration begin"
-                          << " frame_count=" << frame_count
-                          << " dropped_depth_frames=" << dropped_depth_frames
-                          << std::endl;
-            }
             if (app_cfg.camera.stream.max_frames > 0 && frame_count >= app_cfg.camera.stream.max_frames) {
                 break;
             }
 
-            if (frame_count < 5) {
-                std::cout << "[camera_driver] waiting for depth frame" << std::endl;
-            }
             const rs2::depth_frame depth_frame = depth_source.waitForDepthFrame();
-            if (frame_count < 5) {
-                std::cout << "[camera_driver] waitForDepthFrame returned"
-                          << " valid=" << (depth_frame ? "true" : "false")
-                          << std::endl;
-            }
             if (!depth_frame) {
                 ++dropped_depth_frames;
                 if (dropped_depth_frames <= 5 || (dropped_depth_frames % 30) == 0) {
@@ -341,65 +327,25 @@ int runCameraDriverApplication(const CameraDriverConfig& app_cfg,
                 }
             }
 
-            if (frame_count < 5) {
-                std::cout << "[camera_driver] building pointcloud" << std::endl;
-            }
             Pointcloud points_for_mapping =
                 pointcloud_builder.buildForMapping(depth_frame);
-            if (frame_count < 5) {
-                std::cout << "[camera_driver] buildForMapping done"
-                          << " points=" << points_for_mapping.size()
-                          << std::endl;
-            }
             if (app_cfg.filter.crop_below_world_z_enabled) {
-                if (frame_count < 5) {
-                    std::cout << "[camera_driver] cropPointcloudByWorldZ begin" << std::endl;
-                }
                 mapping_z_cropped_total += cropPointcloudByWorldZ(
                     T_world_camera,
                     app_cfg.filter.crop_below_world_z_m,
                     &points_for_mapping);
-                if (frame_count < 5) {
-                    std::cout << "[camera_driver] cropPointcloudByWorldZ done"
-                              << " points=" << points_for_mapping.size()
-                              << " total_cropped=" << mapping_z_cropped_total
-                              << std::endl;
-                }
             }
             if (self_filter && self_filter->enabled()) {
-                if (frame_count < 5) {
-                    std::cout << "[camera_driver] self_filter begin" << std::endl;
-                }
                 self_filtered_mapping_total += self_filter->filterPointcloud(
                     T_world_camera,
                     frame_stamp,
                     &points_for_mapping);
-                if (frame_count < 5) {
-                    std::cout << "[camera_driver] self_filter done"
-                              << " points=" << points_for_mapping.size()
-                              << " total_self_filtered=" << self_filtered_mapping_total
-                              << std::endl;
-                }
             }
 
-            if (frame_count < 5) {
-                std::cout << "[camera_driver] esdf update begin" << std::endl;
-            }
             esdf_grid_map->updateFromPointcloud(points_for_mapping, T_world_camera);
-            if (frame_count < 5) {
-                std::cout << "[camera_driver] esdf update done" << std::endl;
-            }
 
             last_points = points_for_mapping.size();
-            if (frame_count < 5) {
-                std::cout << "[camera_driver] publish begin"
-                          << " last_points=" << last_points
-                          << std::endl;
-            }
             pointcloud_publisher->publish(points_for_mapping, T_world_camera);
-            if (frame_count < 5) {
-                std::cout << "[camera_driver] publish done" << std::endl;
-            }
 
             ++frame_count;
 

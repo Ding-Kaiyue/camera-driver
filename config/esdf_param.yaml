@@ -2,9 +2,9 @@
 
 esdf:
   resolution_m: 0.05
-  map_size_xyz_m: [2.6, 2.6, 2.0]
-  map_origin_xyz_m: [-1.3, -1.3, 0.0]
-  local_update_range_xyz_m: [1.0, 1.0, 1.0]
+  map_size_xyz_m: [6.2, 3.2, 2.0]
+  map_origin_xyz_m: [-0.8, -1.6, 0.0]
+  local_update_range_xyz_m: [3.0, 1.8, 1.2]
   obstacle_inflation_m: 0.00
   local_map_margin_cells: 2
   local_bound_inflate_m: 0.20

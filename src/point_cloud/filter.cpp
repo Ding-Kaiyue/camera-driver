@@ -196,11 +196,25 @@ bool RobotSelfFilter::loadEllipsoidsFromHardwareConfig(
 
             LinkEllipsoid ellipsoid;
             ellipsoid.link_name = item["link_name"].as<std::string>();
+            const std::string shape =
+                item["shape"] ? item["shape"].as<std::string>() : std::string("ellipsoid");
+            if (shape == "box" || shape == "cube") {
+                ellipsoid.shape = LinkEllipsoid::Shape::Box;
+            } else {
+                ellipsoid.shape = LinkEllipsoid::Shape::Ellipsoid;
+            }
             ellipsoid.center_in_link = Eigen::Vector3d(center[0].as<double>(),
                                                        center[1].as<double>(),
                                                        center[2].as<double>());
 
-            if (item["radii"] && item["radii"].IsSequence() &&
+            if (ellipsoid.shape == LinkEllipsoid::Shape::Box &&
+                item["size"] && item["size"].IsSequence() &&
+                item["size"].size() == 3) {
+                const YAML::Node size = item["size"];
+                ellipsoid.radii = 0.5 * Eigen::Vector3d(size[0].as<double>(),
+                                                        size[1].as<double>(),
+                                                        size[2].as<double>());
+            } else if (item["radii"] && item["radii"].IsSequence() &&
                 item["radii"].size() == 3) {
                 const YAML::Node radii = item["radii"];
                 ellipsoid.radii = Eigen::Vector3d(radii[0].as<double>(),
@@ -257,6 +271,9 @@ bool RobotSelfFilter::buildWorldEllipsoids(
     const rclcpp::Time& frame_stamp,
     std::vector<WorldEllipsoid>* ellipsoids) const {
     if (ellipsoids == nullptr || !node_ || tf_buffer_ == nullptr) {
+        return false;
+    }
+    if (!requiredFramesAvailable()) {
         return false;
     }
     ellipsoids->clear();
@@ -316,6 +333,8 @@ bool RobotSelfFilter::buildWorldEllipsoids(
         WorldEllipsoid ellipsoid;
         ellipsoid.center_world = transformPoint(tf_msg, link_ellipsoid.center_in_link);
         ellipsoid.rotation_world_link = transformRotation(tf_msg);
+        ellipsoid.radii = link_ellipsoid.radii;
+        ellipsoid.shape = link_ellipsoid.shape;
         ellipsoid.inv_radii_sq = link_ellipsoid.radii.cwiseProduct(link_ellipsoid.radii)
                                      .cwiseInverse();
         ellipsoid.bounding_radius_sq = link_ellipsoid.bounding_radius_sq;
@@ -323,6 +342,46 @@ bool RobotSelfFilter::buildWorldEllipsoids(
     }
 
     return true;
+}
+
+bool RobotSelfFilter::requiredFramesAvailable() const {
+    if (tf_frames_ready_ || tf_buffer_ == nullptr) {
+        return true;
+    }
+
+    std::string missing_frame;
+    if (!tf_buffer_->_frameExists(world_frame_)) {
+        missing_frame = world_frame_;
+    } else {
+        for (const LinkEllipsoid& link_ellipsoid : link_ellipsoids_) {
+            if (!tf_buffer_->_frameExists(link_ellipsoid.link_name)) {
+                missing_frame = link_ellipsoid.link_name;
+                break;
+            }
+        }
+    }
+
+    if (missing_frame.empty()) {
+        tf_frames_ready_ = true;
+        if (node_ != nullptr) {
+            RCLCPP_INFO(
+                node_->get_logger(),
+                "[PointCloud] Self-filter TF frames are ready.");
+        }
+        return true;
+    }
+
+    ++tf_frames_not_ready_count_;
+    if (node_ != nullptr &&
+        (tf_frames_not_ready_count_ <= 3 ||
+         (tf_frames_not_ready_count_ % 100) == 0)) {
+        RCLCPP_WARN(
+            node_->get_logger(),
+            "[PointCloud] Self-filter waiting for TF frame=%s count=%zu",
+            missing_frame.c_str(),
+            tf_frames_not_ready_count_);
+    }
+    return false;
 }
 
 bool RobotSelfFilter::pointInsideRobot(
@@ -336,10 +395,16 @@ bool RobotSelfFilter::pointInsideRobot(
 
         const Eigen::Vector3d delta_link =
             ellipsoid.rotation_world_link.transpose() * delta_world;
-        const double norm_value =
-            delta_link.cwiseProduct(delta_link).dot(ellipsoid.inv_radii_sq);
-        if (norm_value <= 1.0) {
-            return true;
+        if (ellipsoid.shape == LinkEllipsoid::Shape::Box) {
+            if ((delta_link.cwiseAbs().array() <= ellipsoid.radii.array()).all()) {
+                return true;
+            }
+        } else {
+            const double norm_value =
+                delta_link.cwiseProduct(delta_link).dot(ellipsoid.inv_radii_sq);
+            if (norm_value <= 1.0) {
+                return true;
+            }
         }
     }
     return false;
